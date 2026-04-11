@@ -23,6 +23,7 @@ class EventsPlanner extends StatefulWidget {
     required this.controller,
     this.initialDate,
     this.daysShowed = 3,
+    this.daysWidthRatio,
     this.textDirection = TextDirection.ltr,
     this.maxPreviousDays = 365,
     this.maxNextDays = 365,
@@ -48,7 +49,10 @@ class EventsPlanner extends StatefulWidget {
     this.offTimesParam = const OffTimesParam(),
     this.pinchToZoomParam = const PinchToZoomParameters(),
     this.fullDayParam = const FullDayParam(),
-  });
+  }) : assert(
+    daysWidthRatio == null || daysWidthRatio.length == 7,
+    'daysWidthRatio must contain exactly 7 elements representing the flex units for Monday through Sunday.',
+  );
 
   /// data controller
   final EventsController controller;
@@ -133,6 +137,10 @@ class EventsPlanner extends StatefulWidget {
 
   // full day parameters
   final FullDayParam fullDayParam;
+
+  /// Array of 7 doubles representing the flex ratio of each day (Mon-Sun)
+  /// Example: [1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.5]
+  final List<double>? daysWidthRatio;
 
   @override
   State createState() => EventsPlannerState();
@@ -235,12 +243,10 @@ class EventsPlannerState extends State<EventsPlanner> {
 
   /// listen mainHorizontalController and call onFirstDayChange when day change
   void initDayChangingListener() {
-    var halfDayWidth = (dayWidth / 2);
     var scroll = mainHorizontalController;
     scroll.addListener(() {
       if (_listenHorizontalScrollDayChange) {
-        var halfDay = scroll.offset >= 0 ? halfDayWidth : -halfDayWidth;
-        var index = ((scroll.offset + halfDay) / dayWidth).toInt();
+        var index = getIndexForOffset(scroll.offset);
         // only when index has changed
         if (index != currentIndex) {
           currentIndex = index;
@@ -263,8 +269,9 @@ class EventsPlannerState extends State<EventsPlanner> {
       var scroll = mainHorizontalController;
       var stopScroll = !scroll.position.isScrollingNotifier.value;
       if (_listenHorizontalScrollDayChange && stopScroll) {
-        // Round to nearest day
-        var nearestDayOffset = dayWidth * (scroll.offset / dayWidth).round();
+        // use dynamic offset rounding
+        var nearestIndex = getIndexForOffset(scroll.offset);
+        var nearestDayOffset = getOffsetForIndex(nearestIndex);
         if (nearestDayOffset != scroll.offset) {
           // adjust scroll
           Future.delayed(const Duration(milliseconds: 1), () {
@@ -297,6 +304,70 @@ class EventsPlannerState extends State<EventsPlanner> {
       }
     }
     return false;
+  }
+
+  /// Gets the dynamic width for a specific day based on daysWidthRatio
+  double getDayWidth(DateTime day) {
+    if (widget.daysWidthRatio == null || widget.daysWidthRatio!.length != 7) {
+      return dayWidth; // Fallback to standard calculated width
+    }
+
+    // Sum of the ratios
+    double totalFlex = widget.daysWidthRatio!.reduce((a, b) => a + b);
+
+    // We scale the width proportionally to respect `widget.daysShowed`.
+    // averageFlex represents the flex of a standard "1.0" day.
+    double averageFlex = totalFlex / 7.0;
+    double baseWidth = dayWidth / averageFlex;
+
+    return baseWidth * widget.daysWidthRatio![day.weekday - 1];
+  }
+
+  /// Calculates the exact scroll offset in pixels for a given day index
+  double getOffsetForIndex(int index) {
+    if (widget.daysWidthRatio == null || widget.daysWidthRatio!.length != 7) {
+      return index * dayWidth;
+    }
+
+    // The width of a full 7-day week is ALWAYS exactly 7 * dayWidth
+    // because our ratios are proportionally scaled.
+    double weekWidth = dayWidth * 7;
+
+    // Using double division and floor() correctly handles negative numbers in Dart
+    int weeks = (index / 7).floor();
+    int remainder = index - (weeks * 7); // Always a positive index from 0 to 6
+
+    double offset = weeks * weekWidth;
+
+    // Add the specific widths for the remaining days
+    for (int i = 0; i < remainder; i++) {
+      offset += getDayWidth(getDayFromIndex(weeks * 7 + i));
+    }
+    return offset;
+  }
+
+  /// Finds the day index based on the current scroll offset in pixels
+  int getIndexForOffset(double offset) {
+    if (widget.daysWidthRatio == null || widget.daysWidthRatio!.length != 7) {
+      return (offset / dayWidth).round();
+    }
+
+    double weekWidth = dayWidth * 7;
+    int weeks = (offset / weekWidth).floor();
+    double remainingOffset = offset - (weeks * weekWidth);
+
+    int index = weeks * 7;
+    double currentOffset = 0;
+
+    // Accumulate day widths until we reach the center of the target day
+    while (true) {
+      double currentDayWidth = getDayWidth(getDayFromIndex(index));
+      if (currentOffset + (currentDayWidth / 2) > remainingOffset) {
+        return index;
+      }
+      currentOffset += currentDayWidth;
+      index++;
+    }
   }
 
   @override
@@ -477,7 +548,7 @@ class EventsPlannerState extends State<EventsPlanner> {
                 daySeparationWidthPadding: daySeparationWidthPadding,
                 plannerHeight: plannerHeight,
                 heightPerMinute: heightPerMinute,
-                dayWidth: dayWidth,
+                dayWidth: getDayWidth(day),
                 dayEventsArranger: widget.dayEventsArranger,
                 dayParam: widget.dayParam,
                 columnsParam: widget.columnsParam,
@@ -521,7 +592,7 @@ class EventsPlannerState extends State<EventsPlanner> {
       maxPreviousDays: widget.maxPreviousDays,
       maxNextDays: widget.maxNextDays,
       initialDate: initialDate,
-      dayWidth: dayWidth,
+      dayWidthBuilder: getDayWidth,
       todayColor: todayColor,
       timesIndicatorsWidth: widget.timesIndicatorsParam.timesIndicatorsWidth,
     );
@@ -541,7 +612,7 @@ class EventsPlannerState extends State<EventsPlanner> {
       maxPreviousDays: widget.maxPreviousDays,
       maxNextDays: widget.maxNextDays,
       initialDate: initialDate,
-      dayWidth: dayWidth,
+      dayWidthBuilder: getDayWidth,
       timesIndicatorsWidth: widget.timesIndicatorsParam.timesIndicatorsWidth,
       topLeftCellValueNotifier: topLeftCellValueNotifier,
     );
@@ -630,7 +701,7 @@ class EventsPlannerState extends State<EventsPlanner> {
       // stop scroll listener for avoid change day listener
       _listenHorizontalScrollDayChange = false;
       var index = date.withoutTime.getDayDifference(initialDate);
-      var offset = index * dayWidth;
+      var offset = getOffsetForIndex(index);
       if (widget.textDirection == TextDirection.rtl) {
         offset = -offset;
       }

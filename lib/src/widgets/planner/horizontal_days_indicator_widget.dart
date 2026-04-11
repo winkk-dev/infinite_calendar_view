@@ -19,7 +19,7 @@ class HorizontalDaysIndicatorWidget extends StatelessWidget {
     required this.maxPreviousDays,
     required this.maxNextDays,
     required this.initialDate,
-    required this.dayWidth,
+    required this.dayWidthBuilder,
     required this.topLeftCellValueNotifier,
   });
 
@@ -33,7 +33,7 @@ class HorizontalDaysIndicatorWidget extends StatelessWidget {
   final int? maxPreviousDays;
   final int? maxNextDays;
   final DateTime initialDate;
-  final double dayWidth;
+  final double Function(DateTime) dayWidthBuilder;
   final ValueNotifier<DateTime> topLeftCellValueNotifier;
 
   @override
@@ -70,11 +70,12 @@ class HorizontalDaysIndicatorWidget extends StatelessWidget {
                 builder: (context, index) {
                   var day = getDayFromIndex(index);
                   var isToday = DateUtils.isSameDay(day, DateTime.now());
+                  var currentDayWidth = dayWidthBuilder(day);
 
                   return InfiniteListItem(
                     contentBuilder: (context) {
                       return SizedBox(
-                        width: dayWidth,
+                        width: currentDayWidth,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
@@ -87,7 +88,7 @@ class HorizontalDaysIndicatorWidget extends StatelessWidget {
                                 columnsParam.columnHeaderBuilder != null ||
                                 columnsParam.columnsLabels.isNotEmpty)
                               getColumnsHeader(context, startColumnIndex,
-                                  onColumnIndexChanged, day, isToday)
+                                  onColumnIndexChanged, day, isToday, currentDayWidth)
                           ],
                         ),
                       );
@@ -122,6 +123,7 @@ class HorizontalDaysIndicatorWidget extends StatelessWidget {
     Function(int newStartColumnIndex) onColumnIndexChanged,
     DateTime day,
     bool isToday,
+    double currentDayWidth,
   ) {
     var colorScheme = Theme.of(context).colorScheme;
     var bgColor = colorScheme.surface;
@@ -182,11 +184,11 @@ class HorizontalDaysIndicatorWidget extends StatelessWidget {
                 column++)
               if (builder != null)
                 builder.call(day, isToday, column,
-                    columnsParam.getColumSize(dayWidth, column))
+                    columnsParam.getColumSize(currentDayWidth, column))
               else
                 DefaultColumnHeader(
                   columnText: columnsParam.columnsLabels[column],
-                  columnWidth: columnsParam.getColumSize(dayWidth, column),
+                  columnWidth: columnsParam.getColumSize(currentDayWidth, column),
                   backgroundColor: columnsParam.columnsColors.isNotEmpty
                       ? columnsParam.columnsColors[column]
                       : bgColor,

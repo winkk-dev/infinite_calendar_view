@@ -17,7 +17,7 @@ class HorizontalFullDayEventsWidget extends StatelessWidget {
     required this.maxPreviousDays,
     required this.maxNextDays,
     required this.initialDate,
-    required this.dayWidth,
+    required this.dayWidthBuilder,
     required this.todayColor,
     required this.timesIndicatorsWidth,
   });
@@ -31,7 +31,7 @@ class HorizontalFullDayEventsWidget extends StatelessWidget {
   final int? maxPreviousDays;
   final int? maxNextDays;
   final DateTime initialDate;
-  final double dayWidth;
+  final double Function(DateTime) dayWidthBuilder;
   final Color? todayColor;
   final double timesIndicatorsWidth;
 
@@ -73,10 +73,12 @@ class HorizontalFullDayEventsWidget extends StatelessWidget {
                   builder: (context, index) {
                     var day = getDayFromIndex(index);
                     var isToday = DateUtils.isSameDay(day, DateTime.now());
+                    var currentDayWidth = dayWidthBuilder(day);
+
                     return InfiniteListItem(
                       contentBuilder: (context) {
                         return SizedBox(
-                          width: dayWidth,
+                          width: currentDayWidth,
                           child: FullDayEventsWidget(
                             controller: controller,
                             isToday: isToday,
@@ -84,7 +86,7 @@ class HorizontalFullDayEventsWidget extends StatelessWidget {
                             todayColor: todayColor,
                             fullDayParam: fullDayParam,
                             columnsParam: columnsParam,
-                            dayWidth: dayWidth,
+                            dayWidth: currentDayWidth,
                             daySeparationWidthPadding:
                                 daySeparationWidthPadding,
                           ),
