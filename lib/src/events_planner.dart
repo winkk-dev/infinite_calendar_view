@@ -140,6 +140,8 @@ class EventsPlanner extends StatefulWidget {
 
   /// Array of 7 doubles representing the flex ratio of each day (Mon-Sun)
   /// Example: [1.0, 1.0, 1.0, 1.0, 1.0, 0.5, 0.5]
+  /// Note: [daysShowed] acts as the viewport capacity for standard (1.0) days.
+  /// Days with a ratio > 1.0 will expand proportionately, meaning you may need to scroll to see all [daysShowed] days at once.
   final List<double>? daysWidthRatio;
 
   @override
