@@ -69,15 +69,15 @@ class DraggableEventWidget extends StatelessWidget {
         var relativeOffset = renderBox.globalToLocal(details.offset);
 
         // find day
+        var timeIndicatorWidth = plannerState?.widget.timesIndicatorsParam.timesIndicatorsWidth ?? 0;
+        var scrollOffsetX = plannerState?.mainHorizontalController.offset ?? 0;
+
+        var releaseOffsetX = scrollOffsetX + relativeOffset.dx - timeIndicatorWidth;
         var dayWidth = plannerState?.dayWidth ?? 0;
         var heightPerMinute = plannerState?.heightPerMinute ?? 0;
-        var scrollOffsetX = plannerState?.mainHorizontalController.offset ?? 0;
-        var releaseOffsetX = scrollOffsetX + relativeOffset.dx;
-        var dayIndex = (releaseOffsetX / dayWidth).toInt();
-        // adjust negative index, because current day begin 0 and negative begin -1
-        var reallyDayIndex = releaseOffsetX >= 0 ? dayIndex : dayIndex - 1;
+        var dayIndex = plannerState?.getIndexForOffset(releaseOffsetX, findExact: true) ?? 0;
         var currentDay = plannerState?.initialDate
-                .addCalendarDays(reallyDayIndex)
+                .addCalendarDays(dayIndex)
                 .withoutTime ??
             event.startTime.withoutTime;
 

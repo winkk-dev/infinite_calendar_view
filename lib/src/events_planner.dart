@@ -347,9 +347,11 @@ class EventsPlannerState extends State<EventsPlanner> {
   }
 
   /// Finds the day index based on the current scroll offset in pixels
-  int getIndexForOffset(double offset) {
+  /// If [findExact] is true, it strictly finds the boundary the offset falls into (used for dragging).
+  /// If [findExact] is false, it finds the nearest day center (used for scroll snapping).
+  int getIndexForOffset(double offset, {bool findExact = false}) {
     if (widget.daysWidthRatio == null || widget.daysWidthRatio!.length != 7) {
-      return (offset / dayWidth).round();
+      return findExact ? (offset / dayWidth).floor() : (offset / dayWidth).round();
     }
 
     double weekWidth = dayWidth * 7;
@@ -359,10 +361,12 @@ class EventsPlannerState extends State<EventsPlanner> {
     int index = weeks * 7;
     double currentOffset = 0;
 
-    // Accumulate day widths until we reach the center of the target day
+    // Accumulate day widths until we reach the target day
     while (true) {
       double currentDayWidth = getDayWidth(getDayFromIndex(index));
-      if (currentOffset + (currentDayWidth / 2) > remainingOffset) {
+      double threshold = findExact ? currentDayWidth : (currentDayWidth / 2);
+
+      if (currentOffset + threshold > remainingOffset) {
         return index;
       }
       currentOffset += currentDayWidth;
